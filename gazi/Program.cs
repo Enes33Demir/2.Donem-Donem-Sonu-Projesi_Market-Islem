@@ -193,8 +193,7 @@ namespace MarketTui
             if (tabloVerileri == null) return;
             tabloVerileri.Rows.Clear();
             var filtreli = hafizadakiTumUrunler.Where(u => string.IsNullOrEmpty(arama) || u.Isim.ToLower().Contains(arama.ToLower()) || u.Markasi.ToLower().Contains(arama.ToLower()));
-            foreach (var u in filtreli) tabloVerileri.Rows.Add(u.Id, u.Isim, u.Markasi, u.Kategorisi, string.Format("{0:N2}", u.AlisFiyati), string.Format("{0:N2}", u.SatisFiyati), "%" + u.KarYuzdesi, u.StokMiktari, u.EkrandaGorunecekStokDurumu);
-            
+            foreach (var u in filtreli) tabloVerileri.Rows.Add(u.Id, u.Isim, u.Markasi, u.Kategorisi, string.Format("{0:N2}", u.AlisFiyati), string.Format("{0:N2}", u.SatisFiyati), "%" + u.KarYuzdesi(), u.StokMiktari, u.EkrandaGorunecekStokDurumu());            
             if (anaEkrandaGorunenTablo != null) anaEkrandaGorunenTablo.Update();
             
             if (sagAlttakiOzetMesaji != null) {
