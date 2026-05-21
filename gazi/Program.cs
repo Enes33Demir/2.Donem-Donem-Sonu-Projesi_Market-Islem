@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
@@ -7,6 +7,8 @@ using Terminal.Gui;
 
 namespace MarketTui
 {
+    
+    //Urun Sınıfının Tanımlandığı Kısım
     class Urun
     {
         public string Id { get; set; } = "";
@@ -16,18 +18,47 @@ namespace MarketTui
         public decimal AlisFiyati { get; set; }
         public decimal SatisFiyati { get; set; }
         public int StokMiktari { get; set; }
-        public int StokUyariSiniri { get; set; } = 10;
-        public int SimSatisSayisi { get; set; } = 0; // DB uyumluluğu için
-        public decimal KarYuzdesi => AlisFiyati > 0 ? Math.Round((SatisFiyati - AlisFiyati) / AlisFiyati * 100, 1) : 0;
-        public string EkrandaGorunecekStokDurumu => StokMiktari == 0 ? "BITTI" : (StokMiktari <= StokUyariSiniri ? "AZ" : "OK");
+        public int StokUyariSiniri { get; set; } = 10; 
+        public int SimSatisSayisi { get; set; } = 0; // Şuanda Yok ama DB de var uyumluluk için
+
+        public decimal KarYuzdesi()
+        {
+            if (AlisFiyati > 0)
+            {
+                return Math.Round((SatisFiyati - AlisFiyati) / AlisFiyati * 100, 1);
+            }
+            else
+            {
+                return 0;
+            }
+        }
+        public string EkrandaGorunecekStokDurumu()
+        {
+            if ( StokMiktari == 0)
+            {
+                return "BITTI";
+            }
+
+            if (StokMiktari <= StokUyariSiniri)
+            {
+                return "AZ";
+            }
+            return "OK";
+                
+        }
     }
 
+    //Veri Tabanı İçin Gereken Fonksiyonları Tutan Class
     static class VeritabaniIslemleri
     {
+        //SQL Tablosuna Bağlanmamız İçin Gereken String
         const string BaglantiCumlesi = "Server=localhost,1433;Database=MarketDB;User Id=sa;Password=Gazi_123!Market;TrustServerCertificate=True;Encrypt=False;";
+        //SQL Güvenli Bağtantı İçin Fonksiyon
         public static SqlConnection BaglantiyiAc() { var b = new SqlConnection(BaglantiCumlesi); b.Open(); return b; }
+        //SQL Tablosuna Sorgusu İçin Fonksiyonlar
         static void SorguyuCalistir(SqlConnection b, string s) { using var k = new SqlCommand(s, b); k.ExecuteNonQuery(); }
 
+        // Tablo Yoksa Yapmak İçin
         public static void TablolariOlusturYoksa()
         {
             using var baglanti = BaglantiyiAc();
@@ -40,6 +71,7 @@ namespace MarketTui
             SorguyuCalistir(baglanti, sqlMetni);
         }
 
+        //SQLdeki Ürenleri List<Urun> Olarak Çıkartır
         public static List<Urun> UrunleriGetir()
         {
             var liste = new List<Urun>();
@@ -54,6 +86,7 @@ namespace MarketTui
             return liste;
         }
 
+        //SQL Urun EKlemek ve Güncellemek İçin
         public static void UrunEkleYadaGuncelle(Urun u, bool yeniMi)
         {
             using var b = BaglantiyiAc();
@@ -66,6 +99,7 @@ namespace MarketTui
             k.ExecuteNonQuery();
         }
 
+        // İstenilen Ürünü Sİlmek İçin
         public static void UrunSil(string id) { using var b = BaglantiyiAc(); using var k = new SqlCommand("DELETE FROM Urunler WHERE Id=@Id", b); k.Parameters.AddWithValue("@Id", id); k.ExecuteNonQuery(); }
         public static List<string> ListeGetir(string tablo) {
             var l = new List<string>(); using var b = BaglantiyiAc(); using var k = new SqlCommand("SELECT Adi FROM " + tablo + " ORDER BY Adi", b);
@@ -76,6 +110,7 @@ namespace MarketTui
 
     class Program
     {
+        //Temel Değişkenler
         static List<Urun> hafizadakiTumUrunler = new();
         static List<string> hafizadakiKategoriler = new();
         static List<string> hafizadakiMarkalar = new();
@@ -89,12 +124,13 @@ namespace MarketTui
             VerileriYukle(); 
             Application.Init();
 
-            // Renk Paleti
+            // Renk Paleti Tasarım İçin
             Colors.Base.Normal = Application.Driver.MakeAttribute(Color.BrightGreen, Color.Black);
             Colors.Base.Focus = Application.Driver.MakeAttribute(Color.Black, Color.BrightGreen);
             Colors.Dialog.Normal = Application.Driver.MakeAttribute(Color.White, Color.DarkGray);
             Colors.Dialog.Focus = Application.Driver.MakeAttribute(Color.Black, Color.Cyan);
 
+            //TUI Tasarımı İçin Ust Bar
             var ustMenuCubugu = new MenuBar(new MenuBarItem[] {
                 new("_Islemler", new MenuItem[] {
                     new("_Satis Yap", "^S", EkrandaSatisYap),
@@ -107,6 +143,7 @@ namespace MarketTui
                 new("_Tanimlar", new MenuItem[] { new("_Kategori Ekle", "", () => TanimEkle("Kategoriler")), new("_Marka Ekle", "", () => TanimEkle("Markalar")) })
             });
 
+            //Ana Çerçeve İçin 
             var anaPencere = new Window("A101 Market Otomasyonu") { X = 0, Y = 1, Width = Dim.Fill(), Height = Dim.Fill() - 2 };
             var aramaKutusu = new TextField("") { X = 9, Y = 0, Width = 28 };
             aramaKutusu.TextChanged += _ => TablonunIciniDoldur(aramaKutusu.Text.ToString() ?? "");
@@ -135,7 +172,7 @@ namespace MarketTui
             altTarafBilgiMesaji = new Label("Hazir.") { X = 0, Y = Pos.Bottom(anaEkrandaGorunenTablo) + 1, Width = Dim.Fill() - 40 };
             sagAlttakiOzetMesaji = new Label("") { X = Pos.Right(altTarafBilgiMesaji), Y = Pos.Bottom(anaEkrandaGorunenTablo) + 1, Width = 40 };
 
-            // HER ŞEY OLUŞTUKTAN SONRA TABLOYU DOLDUR (Hata burada çözüldü)
+            // Boş kaldığı için hata almaması için
             TablonunIciniDoldur("");
 
             anaPencere.Add(new Label("Filtre:") { X = 1, Y = 0 }, aramaKutusu, anaEkrandaGorunenTablo, altTarafBilgiMesaji, sagAlttakiOzetMesaji);
@@ -143,9 +180,14 @@ namespace MarketTui
             Application.Run(); 
             Application.Shutdown();
         }
+        //SQL deki verileri Çekme
+        static void VerileriYukle() {
+            hafizadakiTumUrunler = VeritabaniIslemleri.UrunleriGetir(); 
+            hafizadakiKategoriler = VeritabaniIslemleri.ListeGetir("Kategoriler"); 
+            hafizadakiMarkalar = VeritabaniIslemleri.ListeGetir("Markalar"); 
+        }
 
-        static void VerileriYukle() { hafizadakiTumUrunler = VeritabaniIslemleri.UrunleriGetir(); hafizadakiKategoriler = VeritabaniIslemleri.ListeGetir("Kategoriler"); hafizadakiMarkalar = VeritabaniIslemleri.ListeGetir("Markalar"); }
-
+        //Grafik Arayüzü Tablomuz İçin Verileri Yerleştirme
         static void TablonunIciniDoldur(string arama)
         {
             if (tabloVerileri == null) return;
@@ -161,16 +203,20 @@ namespace MarketTui
             }
         }
 
+        //Satır Seçmek İçin
         static Urun? TablodanSecilenUrun() { 
             int s = anaEkrandaGorunenTablo.SelectedRow; 
             if (s < 0 || s >= tabloVerileri.Rows.Count) return null;
             string id = tabloVerileri.Rows[s][0].ToString();
             return hafizadakiTumUrunler.FirstOrDefault(u => u.Id == id);
         }
-
+        
+        //Bildirim Özelliği
         static void MesajGoster(string m) => altTarafBilgiMesaji.Text = m;
+        //Bildirim Paneli TUI
         static TextField MetinKutusuOlustur(Dialog p, string yazi, string varsayilan, int y) { p.Add(new Label(yazi) { X=1, Y=y }); var k = new TextField(varsayilan) { X=20, Y=y, Width=25 }; p.Add(k); return k; }
 
+        //Satışla Ürünleri Azaltmak İçin
         static void EkrandaSatisYap() {
             var u = TablodanSecilenUrun(); if (u == null) return;
             var p = new Dialog("Satis: " + u.Isim, 40, 8);
@@ -187,10 +233,13 @@ namespace MarketTui
             };
             p.AddButton(btnSatis); Application.Run(p);
         }
-
+        
+        //Urun Ekleme
         static void EkrandaYeniUrunEkle() { UrunPenceresi(new Urun { Id = (hafizadakiTumUrunler.Count == 0 ? "1001" : (hafizadakiTumUrunler.Max(x => int.Parse(x.Id)) + 1).ToString()) }, true); }
+        //Urun Düzenleme
         static void EkrandaUrunuDuzenle() { var u = TablodanSecilenUrun(); if (u != null) UrunPenceresi(u, false); }
 
+        //Urun Özel Sayfası
         static void UrunPenceresi(Urun urun, bool yeniMi)
         {
             var pencere = new Dialog(yeniMi ? "Yeni Urun" : "Duzenle", 50, 14);
@@ -216,6 +265,7 @@ namespace MarketTui
             pencere.AddButton(kaydet); Application.Run(pencere);
         }
 
+        //Ürünü Kaldırma
         static void EkrandaUrunuSil() {
             var u = TablodanSecilenUrun(); if (u == null) return;
             if (MessageBox.Query("Sil", u.Isim + " silinsin mi?", "Evet", "Hayir") == 0) {
@@ -225,6 +275,7 @@ namespace MarketTui
             }
         }
 
+        // Stoklarla Oynama
         static void EkrandaStokDegistir() {
             var u = TablodanSecilenUrun(); if (u == null) return;
             var p = new Dialog("Stok Guncelle", 40, 7);
@@ -241,11 +292,13 @@ namespace MarketTui
             p.AddButton(btn); Application.Run(p);
         }
 
+        //Biten Ürünler İçin Uyarı
         static void BitenUrunlerinAlarminiGoster() {
             string m = string.Join("\n", hafizadakiTumUrunler.Where(x => x.StokMiktari <= x.StokUyariSiniri).Select(x => x.Isim + ": " + x.StokMiktari));
             MessageBox.Query("Alarmlar", string.IsNullOrEmpty(m) ? "Stoklar iyi." : m, "Tamam");
         }
-
+        
+        //Kar Raporunu Göster
         static void KarRaporunuGoster() {
             string y = string.Join("\n", hafizadakiTumUrunler.Select(u => $"{u.Isim}: %{u.KarYuzdesi} Kar"));
             MessageBox.Query("Kar Analizi", string.IsNullOrEmpty(y) ? "Urun yok." : y, "Kapat");
